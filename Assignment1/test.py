@@ -199,4 +199,4 @@ print(score_position2(t5, 1))
 # print(f1(t5, 1))
 # t6 = np.fliplr(t5)
 # print(t6)
-# print(f1(t6, 1))
+
