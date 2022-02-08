@@ -5,6 +5,10 @@ import numpy as np
 import argparse
 import sys
 from gym_connect_four import ConnectFourEnv
+import os
+sys.path.append(os.path.abspath("gym_connect_four/envs"))
+from render import *
+
 
 env: ConnectFourEnv = gym.make("ConnectFour-v0")
 debbug = False
@@ -58,11 +62,12 @@ def opponents_move(state):
    # TODO: Optional? change this to select actions with your policy too
    # that way you get way more interesting games, and you can see if starting
    # is enough to guarrantee a win
-   action = random.choice(list(avmoves))
-   # env.reset(board=state.copy())
-   # temp_board = env.board.copy()
-   # action, score = maximizer(4, -100000000, 100000000, -1)
-   # env.reset(board=temp_board)
+   # action = random.choice(list(avmoves))
+   env.reset(board=state.copy())
+   temp_board = env.board.copy()
+   action, score = maximizer(2, -100000000, 100000000, -1)
+   env.reset(board=temp_board)
+   env.set_player(-1)
    state, reward, done, _ = env.step(action)
    if done:
       if reward == 1: # reward is always in current players view
@@ -80,7 +85,8 @@ def student_move(state):
    env.reset(board=state.copy())
    temp_board = env.board.copy()
    action, score = maximizer(4, -100000000, 100000000, 1)
-   env.reset(board=temp_board) 
+   env.reset(board=temp_board)
+   env.set_player(1) 
    return action
    
 
@@ -88,17 +94,11 @@ def student_move(state):
 def evaluate_window(window, piece):
    score = 0
    opp_piece = -1*piece
-
-   if window.count(piece) == 4:
-      score += 100
-   elif window.count(opp_piece) == 4:
-      score -= 100
-   elif window.count(piece) == 3 and window.count(0) == 1:
-      score += 5
-   elif window.count(piece) == 2 and window.count(0) == 2:
-      score += 2
-   if window.count(opp_piece) == 3 and window.count(0) == 1:
-      score -= 4
+   score += (window.count(piece) == 4)*100
+   score -= (window.count(opp_piece) == 4)*100
+   score += (window.count(piece) == 3 and window.count(0) == 1)*5
+   score += (window.count(piece) == 2 and window.count(0) == 2)*2
+   score -= (window.count(opp_piece) == 3 and window.count(0) == 1)*4
    return score
 
 def board_value(board, piece):
@@ -117,45 +117,47 @@ def board_value(board, piece):
    for c in range(nbr_cols):
       for r in range(nbr_rows - 3):
          score += evaluate_window(reversed_board[c][r:r + 4], piece)
-   # Upward diagonal score
+   reversed_board = np.fliplr(board)
+   # Diagonals score
    for r in range(nbr_rows - 3):
       for c in range(nbr_cols - 3):
          score += evaluate_window([board[r+i][c+i] for i in range(4)], piece)
-   reversed_board = np.fliplr(board)
-   # Downward diagonal score
-   for r in range(nbr_rows - 3):
-      for c in range(nbr_cols - 3):
          score += evaluate_window([reversed_board[r+i][c+i] for i in range(4)], piece)
    return score
 
 def maximizer(depth, alpha, beta, player):
    avmoves = env.available_moves()
    if depth == 0 or env.is_win_state():
+      #print(env.board)
       return (None, board_value(env.board, player))
    else:
       start_board = env.board
       best_action = None 
       current_high = -100000000
       for action in avmoves:
+         env.set_player(player)
          env.step(action)
          current_score = minimizer(depth-1, alpha, beta, player)[1]
          if current_score > current_high:
             current_high = current_score
             best_action = action
          alpha = max(alpha, current_high)
+         if alpha >= beta:
+            break
          env.reset(board=start_board.copy())
       return best_action, current_high
 
 def minimizer(depth, alpha, beta, player):
    avmoves = env.available_moves()
    if depth == 0 or env.is_win_state():
+      #print(env.board)
       return (None, board_value(env.board, player))
    else:
       start_board = env.board
       best_action = None 
       current_low = 100000000
       for action in avmoves:
-         env.change_player()
+         env.set_player(-1*player)
          env.step(action)
          current_score = maximizer(depth-1, alpha, beta, player)[1]
          if current_score < current_low:
@@ -209,7 +211,10 @@ def play_game(vs_server = False):
    print()
 
    done = False
+   images = render_board(state)
+   print(len(images))
    while not done:
+      
       # Select your move
       stmove = student_move(state) # TODO: change input here
       print(f'move is = {stmove}')
@@ -294,7 +299,7 @@ def main():
    # you can check your stats bu running the program with "--stats"
 # state = np.zeros((6, 7), dtype=int)
 # env.reset(board=state)
-# res = alphabeta(3, 0, 100000000, True, 1)
+# res = maximizer(4, 0, 100000000, 1)
 # print(res[0], res[1])
 if __name__ == "__main__":
     main()

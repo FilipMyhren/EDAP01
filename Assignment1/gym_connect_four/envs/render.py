@@ -76,7 +76,6 @@ def render_board(board,
         draw.ellipse([
             (origin_x - radius_x, origin_y - radius_y),
             (origin_x + radius_x, origin_y + radius_y)
-        ], fill=color)
-
+        ], fill=color)  
     return np.array(image)
 
